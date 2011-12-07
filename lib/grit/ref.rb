@@ -11,11 +11,29 @@ module Grit
       # Returns Grit::Ref[] (baked)
       def find_all(repo, options = {})
         refs = repo.git.refs(options, prefix)
-        refs.split("\n").map do |ref|
-          name, id = *ref.split(' ')
+
+        unresolved = []
+        real_refs = []
+        refs.split("\n").each do |ref|
+          name, id, rest = *ref.split(' ')
+          if id == "ref:"
+            # search for real ref
+            unresolved << {:name => name, :id => rest.split("/").last}
+          else
           commit = Commit.create(repo, :id => id)
-          self.new(name, commit)
+            real_refs << self.new(name, commit)
+          end
         end
+        puts unresolved
+        late_refs = []
+        unresolved.each { |un|
+          real_refs.each { |ref|
+            if ref.name == un[:id]
+              late_refs << self.new(un[:name], ref.commit)
+        end
+          }
+        }
+        real_refs + late_refs
       end
 
       protected
